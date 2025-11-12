@@ -36,19 +36,36 @@ echo "🧹 Cleaning dist folder on Raspberry Pi..."
 sshpass -p "$PI_PASSWORD" ssh -o StrictHostKeyChecking=no $PI_USER@$PI_HOST "rm -rf $REMOTE_DIR/dist"
 
 echo "🚀 Copying dist folder to Raspberry Pi..."
-sshpass -p "$PI_PASSWORD" scp -r -o StrictHostKeyChecking=no dist .nvmrc $PI_USER@$PI_HOST:$REMOTE_DIR
+sshpass -p "$PI_PASSWORD" scp -r -o StrictHostKeyChecking=no dist package.json .nvmrc $PI_USER@$PI_HOST:$REMOTE_DIR
 
-# echo "🚀 Running script with Node on Pi..."
-# sshpass -p "$PI_PASSWORD" ssh -o StrictHostKeyChecking=no $PI_USER@$PI_HOST "cd $REMOTE_DIR && \
-#   echo '📦 Checking files...' && \
-#   ls -la dist/server.js && \
-#   echo '🔧 Loading nvm...' && \
-#   export NVM_DIR=\"\$HOME/.nvm\" && \
-#   [ -s \"\$NVM_DIR/nvm.sh\" ] && \. \"\$NVM_DIR/nvm.sh\" && \
-#   echo '📌 Using Node version from .nvmrc...' && \
-#   nvm use && \
-#   echo '🚀 Running server...' && \
-#   node dist/server.js"
+echo "🔧 Setup node version on Raspberry Pi..."
+sshpass -p "$PI_PASSWORD" ssh -o StrictHostKeyChecking=no $PI_USER@$PI_HOST "source ~/.nvm/nvm.sh && cd $REMOTE_DIR && nvm use"
+
+echo "📦 Setting up PM2 on Raspberry Pi..."
+sshpass -p "$PI_PASSWORD" ssh -o StrictHostKeyChecking=no $PI_USER@$PI_HOST << EOF
+  source ~/.nvm/nvm.sh
+  cd $REMOTE_DIR
+  nvm use
+  
+  # Install PM2 globally if not already installed
+  if ! command -v pm2 &> /dev/null; then
+    echo "📥 Installing PM2..."
+    npm install -g pm2
+  fi
+  
+  # Stop and delete existing PM2 process if it exists
+  pm2 delete $APP_NAME 2>/dev/null || true
+  
+  # Start the server with PM2
+  echo "🚀 Starting server with PM2..."
+  pm2 start dist/server.js --name $APP_NAME
+  
+  # Save PM2 process list
+  pm2 save
+  
+  # Setup PM2 to start on system boot (optional, uncomment if needed)
+  # pm2 startup
+EOF
 
 echo "✅ Deployment complete!"
 
