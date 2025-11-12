@@ -12,7 +12,7 @@
     "deploy": "turbo run deploy"
   },
   "devDependencies": {
-    "turbo": "^1.11.2"
+    "turbo": "^2.6.1"
   },
   "engines": {
     "node": ">=18.0.0"
