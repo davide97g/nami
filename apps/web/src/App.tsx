@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { getServerUrl, getWebSocketUrl } from './config';
 
 const App = () => {
   const [status, setStatus] = useState<string>('Loading...');
@@ -9,9 +10,12 @@ const App = () => {
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
+    const serverUrl = getServerUrl();
+    const wsUrl = getWebSocketUrl();
+
     const fetchStatus = async () => {
       try {
-        const response = await fetch('http://localhost:3000/');
+        const response = await fetch(`${serverUrl}/`);
         const text = await response.text();
         setStatus(text);
       } catch (error) {
@@ -21,7 +25,7 @@ const App = () => {
 
     const fetchInfo = async () => {
       try {
-        const response = await fetch('http://localhost:3000/info');
+        const response = await fetch(`${serverUrl}/info`);
         const data = await response.json();
         setInfo(data);
       } catch (error) {
@@ -33,7 +37,7 @@ const App = () => {
     fetchInfo();
 
     // Connect to WebSocket
-    const ws = new WebSocket('ws://localhost:3000');
+    const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     ws.onopen = () => {
