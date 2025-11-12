@@ -1,0 +1,6 @@
+[scripts]
+dev = "bun run --watch src/server.ts"
+build = "bun tsc"
+start = "node dist/server.js"
+deploy = "bash ./deploy.sh"
+
