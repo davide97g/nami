@@ -1,8 +1,8 @@
 import cors from "cors";
 import express from "express";
-import { existsSync, readFileSync } from "fs";
+import { existsSync } from "fs";
 import { readFile } from "fs/promises";
-import https from "https";
+import http from "http";
 import os from "os";
 import { WebSocket, WebSocketServer } from "ws";
 import packageJson from "../package.json" assert { type: "json" };
@@ -11,12 +11,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const options = {
-  key: readFileSync("/etc/ssl/cloudflare/origin.key"),
-  cert: readFileSync("/etc/ssl/cloudflare/origin.crt"),
-};
-
-const server = https.createServer(options, app);
+const server = http.createServer(app);
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
@@ -254,10 +249,6 @@ wss.on("connection", (ws: WebSocket, req) => {
 });
 
 server.listen(PORT, () => {
-  console.log(
-    `🚀 HTTPS server running on https://nami.davideghiotto.it:${PORT}`
-  );
-  console.log(
-    `🔌 WebSocket server ready on wss://nami.davideghiotto.it:${PORT}`
-  );
+  console.log(`🚀 HTTP server running on http://localhost:${PORT}`);
+  console.log(`🔌 WebSocket server ready on ws://localhost:${PORT}`);
 });
