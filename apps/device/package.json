@@ -9,7 +9,7 @@
     "serial-monitor:9600": "bash scripts/serial-monitor.sh 9600",
     "serial-monitor:115200": "bash scripts/serial-monitor.sh 115200",
     "install-libraries": "bash scripts/install-libraries.sh",
-    "compile-and-upload": "bash scripts/compile-and-upload.sh",
+    "deploy": "bash scripts/compile-and-upload.sh",
     "autoport": "bash scripts/autoport.sh"
   },
   "engines": {

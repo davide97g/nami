@@ -19,6 +19,74 @@ WebSocketsClient webSocket;
 Adafruit_SSD1306* globalDisplay = nullptr;
 
 /**
+ * Display ASCII art on OLED screen
+ * Handles line breaks and scrolling for long ASCII art
+ * @param display Reference to the Adafruit_SSD1306 display object
+ * @param asciiArt The ASCII art string to display
+ */
+void displayAsciiArt(Adafruit_SSD1306& display, const String& asciiArt) {
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  
+  // Display parameters
+  const int lineHeight = 8; // Text size 1 uses ~8 pixels per line
+  const int maxWidth = 128;
+  const int maxLines = 8; // 64 pixels / 8 pixels per line = 8 lines
+  const int charWidth = 6; // Approximate character width for text size 1
+  const int charsPerLine = maxWidth / charWidth; // ~21 characters per line
+  
+  // Split ASCII art by newlines
+  int lineCount = 0;
+  int startPos = 0;
+  int yPos = 0;
+  
+  // Process the message line by line
+  while (startPos < asciiArt.length() && lineCount < maxLines) {
+    // Find the next newline or end of string
+    int newlinePos = asciiArt.indexOf('\n', startPos);
+    int endPos = (newlinePos == -1) ? asciiArt.length() : newlinePos;
+    
+    // Extract the line
+    String line = asciiArt.substring(startPos, endPos);
+    
+    // If line is longer than display width, split it
+    while (line.length() > charsPerLine && lineCount < maxLines) {
+      String subLine = line.substring(0, charsPerLine);
+      display.setCursor(0, yPos);
+      display.println(subLine);
+      yPos += lineHeight;
+      lineCount++;
+      
+      // Remove processed part from line
+      line = line.substring(charsPerLine);
+    }
+    
+    // Display remaining part of line (if any)
+    if (line.length() > 0 && lineCount < maxLines) {
+      display.setCursor(0, yPos);
+      display.println(line);
+      yPos += lineHeight;
+      lineCount++;
+    }
+    
+    // Move to next line (skip the newline character)
+    startPos = (newlinePos == -1) ? asciiArt.length() : newlinePos + 1;
+  }
+  
+  // If there's more content, show indicator
+  if (startPos < asciiArt.length()) {
+    // Clear last line and show "..."
+    yPos -= lineHeight;
+    display.fillRect(0, yPos, maxWidth, lineHeight, SSD1306_BLACK);
+    display.setCursor(0, yPos);
+    display.println("...");
+  }
+  
+  display.display();
+}
+
+/**
  * WebSocket event handler - called when events occur
  */
 void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
@@ -49,58 +117,69 @@ void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
         
         // Display message on OLED
         if (globalDisplay) {
-          globalDisplay->clearDisplay();
-          globalDisplay->setTextSize(1);
-          globalDisplay->setTextColor(SSD1306_WHITE);
+          // Check if message contains ASCII art patterns (multiple lines, special chars)
+          // For ASCII art, we preserve line breaks and display as-is
+          bool isAsciiArt = message.indexOf('\n') != -1 || 
+                           message.length() > 50; // Likely ASCII art if long or has newlines
           
-          // Display "Message:" header
-          globalDisplay->setCursor(0, 0);
-          globalDisplay->println("Message:");
-          
-          // Display the message, wrapping if necessary
-          int lineHeight = 8;
-          int maxWidth = 128;
-          int maxLines = 7; // Leave some space
-          int yPos = 12;
-          int charWidth = 6; // Approximate character width for text size 1
-          
-          // Split message into lines that fit the display width
-          int startPos = 0;
-          int lineCount = 0;
-          
-          while (startPos < message.length() && lineCount < maxLines) {
-            int charsPerLine = maxWidth / charWidth;
-            int endPos = startPos + charsPerLine;
+          if (isAsciiArt) {
+            // Display as ASCII art (preserve line breaks, handle scrolling)
+            displayAsciiArt(*globalDisplay, message);
+          } else {
+            // Display as regular message (with header)
+            globalDisplay->clearDisplay();
+            globalDisplay->setTextSize(1);
+            globalDisplay->setTextColor(SSD1306_WHITE);
             
-            // If message is longer than one line, try to break at a space
-            if (endPos < message.length()) {
-              int lastSpace = message.lastIndexOf(' ', endPos);
-              if (lastSpace > startPos) {
-                endPos = lastSpace;
+            // Display "Message:" header
+            globalDisplay->setCursor(0, 0);
+            globalDisplay->println("Message:");
+            
+            // Display the message, wrapping if necessary
+            int lineHeight = 8;
+            int maxWidth = 128;
+            int maxLines = 7; // Leave some space
+            int yPos = 12;
+            int charWidth = 6; // Approximate character width for text size 1
+            
+            // Split message into lines that fit the display width
+            int startPos = 0;
+            int lineCount = 0;
+            
+            while (startPos < message.length() && lineCount < maxLines) {
+              int charsPerLine = maxWidth / charWidth;
+              int endPos = startPos + charsPerLine;
+              
+              // If message is longer than one line, try to break at a space
+              if (endPos < message.length()) {
+                int lastSpace = message.lastIndexOf(' ', endPos);
+                if (lastSpace > startPos) {
+                  endPos = lastSpace;
+                }
+              }
+              
+              String line = message.substring(startPos, endPos);
+              globalDisplay->setCursor(0, yPos);
+              globalDisplay->println(line);
+              
+              yPos += lineHeight;
+              lineCount++;
+              startPos = endPos;
+              
+              // Skip space if we broke at a space
+              if (startPos < message.length() && message.charAt(startPos) == ' ') {
+                startPos++;
               }
             }
             
-            String line = message.substring(startPos, endPos);
-            globalDisplay->setCursor(0, yPos);
-            globalDisplay->println(line);
-            
-            yPos += lineHeight;
-            lineCount++;
-            startPos = endPos;
-            
-            // Skip space if we broke at a space
-            if (startPos < message.length() && message.charAt(startPos) == ' ') {
-              startPos++;
+            // If message was truncated, show "..."
+            if (startPos < message.length()) {
+              globalDisplay->setCursor(0, yPos);
+              globalDisplay->println("...");
             }
+            
+            globalDisplay->display();
           }
-          
-          // If message was truncated, show "..."
-          if (startPos < message.length()) {
-            globalDisplay->setCursor(0, yPos);
-            globalDisplay->println("...");
-          }
-          
-          globalDisplay->display();
         }
       }
       break;

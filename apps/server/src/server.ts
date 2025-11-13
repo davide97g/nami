@@ -9,6 +9,7 @@ import { readFile } from "fs/promises";
 import http from "http";
 import os from "os";
 import { WebSocket, WebSocketServer } from "ws";
+import OpenAI from "openai";
 import packageJson from "../package.json" assert { type: "json" };
 import { getMessages, sendMessage } from "./chat/chat.js";
 
@@ -153,6 +154,74 @@ app.get("/api/chat/messages", (req, res) => {
     console.error("Error getting chat messages:", error);
     res.status(500).json({
       error: "Failed to retrieve messages",
+      message: error.message || "Unknown error",
+    });
+  }
+});
+
+// Initialize OpenAI client for ASCII art generation
+const openaiApiKey = process.env.OPENAI_API_KEY;
+const openai = openaiApiKey
+  ? new OpenAI({
+      apiKey: openaiApiKey,
+    })
+  : null;
+
+// ASCII Art API endpoint
+app.post("/api/ascii-art", async (req, res) => {
+  try {
+    // Check if OpenAI is configured
+    if (!openai) {
+      return res.status(500).json({
+        success: false,
+        error: "OpenAI API key is not configured",
+      });
+    }
+
+    // Fixed prompt for ASCII art generation
+    const prompt =
+      "Create a random, creative ASCII art. Make it interesting and visually appealing. Keep it reasonably sized (not too large). Only return the ASCII art itself, no explanations or additional text.";
+
+    // Call OpenAI API
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      max_tokens: 500,
+    });
+
+    const asciiArt =
+      completion.choices[0]?.message?.content || "No ASCII art generated";
+
+    // Send ASCII art to all connected ESP32 clients via WebSocket
+    let sent = false;
+    esp32Clients.forEach((esp32Client) => {
+      if (esp32Client.readyState === WebSocket.OPEN) {
+        esp32Client.send(asciiArt);
+        sent = true;
+      }
+    });
+
+    if (!sent) {
+      return res.status(503).json({
+        success: false,
+        error: "No ESP32 clients connected",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "ASCII art sent to device",
+    });
+  } catch (error: any) {
+    console.error("Error generating ASCII art:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to generate ASCII art",
       message: error.message || "Unknown error",
     });
   }

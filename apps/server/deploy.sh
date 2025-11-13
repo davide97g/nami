@@ -35,8 +35,19 @@ bun run build
 echo "🧹 Cleaning dist folder on Raspberry Pi..."
 sshpass -p "$PI_PASSWORD" ssh -o StrictHostKeyChecking=no $PI_USER@$PI_HOST "rm -rf $REMOTE_DIR/dist"
 
-echo "🚀 Copying dist folder to Raspberry Pi..."
-sshpass -p "$PI_PASSWORD" scp -r -o StrictHostKeyChecking=no dist package.json ../../.nvmrc $PI_USER@$PI_HOST:$REMOTE_DIR
+echo "🚀 Copying files to Raspberry Pi..."
+# Build the list of files to copy
+FILES_TO_COPY="dist package.json ../../.nvmrc"
+
+# Add .env file if it exists
+if [ -f ".env" ]; then
+  echo "📄 Including .env file..."
+  FILES_TO_COPY="$FILES_TO_COPY .env"
+else
+  echo "⚠️  Warning: .env file not found, skipping..."
+fi
+
+sshpass -p "$PI_PASSWORD" scp -r -o StrictHostKeyChecking=no $FILES_TO_COPY $PI_USER@$PI_HOST:$REMOTE_DIR
 
 echo "🔧 Setup node version on Raspberry Pi..."
 sshpass -p "$PI_PASSWORD" ssh -o StrictHostKeyChecking=no $PI_USER@$PI_HOST "source ~/.nvm/nvm.sh && cd $REMOTE_DIR && nvm use"
