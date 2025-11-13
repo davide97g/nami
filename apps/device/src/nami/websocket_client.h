@@ -7,10 +7,10 @@
 #include <Adafruit_SSD1306.h>
 #include "wifi_connection.h"
 
-#define WEBSOCKET_HOST "nami.davideghiotto.it"
-#define WEBSOCKET_PORT 443
+#define WEBSOCKET_HOST "raspberrypi.local"
+#define WEBSOCKET_PORT 3000
 #define WEBSOCKET_PATH "/"
-#define INFO_ENDPOINT "https://nami.davideghiotto.it/info"
+#define INFO_ENDPOINT "http://raspberrypi.local:3000/info"
 
 // Global WebSocket client instance
 WebSocketsClient webSocket;
@@ -140,12 +140,10 @@ bool connectWebSocket(Adafruit_SSD1306& display) {
   display.println("WebSocket...");
   display.display();
 
-  // Initialize WebSocket client with SSL (WSS)
-  webSocket.beginSSL(WEBSOCKET_HOST, WEBSOCKET_PORT, WEBSOCKET_PATH);
+  // Initialize WebSocket client
+  webSocket.begin(WEBSOCKET_HOST, WEBSOCKET_PORT, WEBSOCKET_PATH);
   webSocket.onEvent(webSocketEvent);
   webSocket.setReconnectInterval(5000);
-  // Allow self-signed certificates (needed for local development)
-  // webSocket.setInsecure();
 
   // Try to connect (with timeout)
   unsigned long startTime = millis();
