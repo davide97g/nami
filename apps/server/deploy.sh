@@ -36,7 +36,7 @@ echo "🧹 Cleaning dist folder on Raspberry Pi..."
 sshpass -p "$PI_PASSWORD" ssh -o StrictHostKeyChecking=no $PI_USER@$PI_HOST "rm -rf $REMOTE_DIR/dist"
 
 echo "🚀 Copying dist folder to Raspberry Pi..."
-sshpass -p "$PI_PASSWORD" scp -r -o StrictHostKeyChecking=no dist package.json ../../.nvmrc nginx.conf cloudflared-config.yml $PI_USER@$PI_HOST:$REMOTE_DIR
+sshpass -p "$PI_PASSWORD" scp -r -o StrictHostKeyChecking=no dist package.json ../../.nvmrc $PI_USER@$PI_HOST:$REMOTE_DIR
 
 echo "🔧 Setup node version on Raspberry Pi..."
 sshpass -p "$PI_PASSWORD" ssh -o StrictHostKeyChecking=no $PI_USER@$PI_HOST "source ~/.nvm/nvm.sh && cd $REMOTE_DIR && nvm use"
