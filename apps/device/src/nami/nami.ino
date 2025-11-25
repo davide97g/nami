@@ -3,6 +3,7 @@
 #include <Adafruit_SSD1306.h>
 #include "wifi_connection.h"
 #include "websocket_client.h"
+#include "rfid_reader.h"
 
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
@@ -28,6 +29,15 @@ const unsigned char epd_bitmap_25 [] PROGMEM = {
 // System info fetch interval (in milliseconds)
 #define INFO_FETCH_INTERVAL 30000  // Fetch every 30 seconds
 unsigned long lastInfoFetch = 0;
+
+// RFID card detection variables
+byte rfidUID[10];  // Buffer for UID (max 10 bytes)
+byte rfidUIDLength = 0;
+unsigned long lastCardRead = 0;
+const unsigned long CARD_DISPLAY_DURATION = 5000;  // Show card for 5 seconds
+bool rfidInitialized = false;
+unsigned long lastRFIDRetry = 0;
+const unsigned long RFID_RETRY_INTERVAL = 5000;  // Retry every 5 seconds
 
 void setup() {
   // Initialize Serial for logging
@@ -153,6 +163,35 @@ void setup() {
   Serial.println("[Setup] Fetching system info from /info endpoint...");
   fetchAndDisplaySystemInfo(display);
   lastInfoFetch = millis();
+
+  // --- Initialize RFID Reader ---
+  Serial.println("[Setup] Initializing RFID reader...");
+  rfidInitialized = initRFID();
+  if (rfidInitialized) {
+    Serial.println("[Setup] RFID reader initialized successfully!");
+    displayWaitingForCard(display);
+  } else {
+    Serial.println("[Setup] RFID reader initialization failed! Will retry every 5 seconds...");
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setTextColor(SSD1306_WHITE);
+    
+    int x1 = centerText(display, "RFID Init", 0);
+    display.setCursor(x1, 15);
+    display.println("RFID Init");
+    
+    int x2 = centerText(display, "Failed", 0);
+    display.setCursor(x2, 30);
+    display.println("Failed");
+    
+    int x3 = centerText(display, "Retrying...", 0);
+    display.setCursor(x3, 45);
+    display.println("Retrying...");
+    display.display();
+    
+    // Set initial retry time
+    lastRFIDRetry = millis();
+  }
 }
 
 void loop() {
@@ -166,6 +205,84 @@ void loop() {
   if (currentTime - lastInfoFetch >= INFO_FETCH_INTERVAL) {
     fetchAndDisplaySystemInfo(display);
     lastInfoFetch = currentTime;
+  }
+  
+  // --- RFID Retry Logic ---
+  if (!rfidInitialized) {
+    // Check if it's time to retry RFID initialization
+    if (currentTime - lastRFIDRetry >= RFID_RETRY_INTERVAL) {
+      Serial.println("[RFID] Retrying RFID initialization...");
+      
+      // Show retry message on display
+      display.clearDisplay();
+      display.setTextSize(1);
+      display.setTextColor(SSD1306_WHITE);
+      
+      int x1 = centerText(display, "RFID Retry", 0);
+      display.setCursor(x1, 20);
+      display.println("RFID Retry");
+      
+      int x2 = centerText(display, "...", 0);
+      display.setCursor(x2, 35);
+      display.println("...");
+      display.display();
+      
+      // Attempt to initialize RFID
+      rfidInitialized = initRFID();
+      
+      if (rfidInitialized) {
+        Serial.println("[RFID] RFID reader initialized successfully on retry!");
+        displayWaitingForCard(display);
+      } else {
+        Serial.println("[RFID] Retry failed. Will try again in 5 seconds...");
+        display.clearDisplay();
+        display.setTextSize(1);
+        display.setTextColor(SSD1306_WHITE);
+        
+        int x3 = centerText(display, "RFID Init", 0);
+        display.setCursor(x3, 15);
+        display.println("RFID Init");
+        
+        int x4 = centerText(display, "Failed", 0);
+        display.setCursor(x4, 30);
+        display.println("Failed");
+        
+        int x5 = centerText(display, "Retrying...", 0);
+        display.setCursor(x5, 45);
+        display.println("Retrying...");
+        display.display();
+      }
+      
+      lastRFIDRetry = currentTime;
+    }
+  }
+  
+  // --- RFID Card Reading ---
+  if (rfidInitialized) {
+    // Check if we're still displaying a previous card
+    if (currentTime - lastCardRead < CARD_DISPLAY_DURATION) {
+      // Still showing previous card, don't read new one yet
+      delay(100);
+      return;
+    }
+    
+    // Try to read a new RFID card
+    if (readRFIDCard(rfidUID, &rfidUIDLength)) {
+      String uidString = uidToString(rfidUID, rfidUIDLength);
+      
+      Serial.print("[RFID] Card detected! UID: ");
+      Serial.println(uidString);
+      
+      // Display the card UID on OLED
+      displayRFIDCard(display, uidString);
+      
+      lastCardRead = currentTime;
+    } else {
+      // No card detected, show waiting message if not already showing
+      if (currentTime - lastCardRead >= CARD_DISPLAY_DURATION) {
+        displayWaitingForCard(display);
+      }
+    }
   }
   
   // Small delay to prevent excessive CPU usage

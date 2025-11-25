@@ -19,3 +19,7 @@ ArduinoJson
 # https://github.com/Links2004/arduinoWebSockets
 WebSockets
 
+# MFRC522 - RFID reader library for MFRC522 module
+# https://github.com/miguelbalboa/rfid
+MFRC522
+
